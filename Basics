@@ -1,0 +1,242 @@
+1. Concantenation:
+
+Use the + operator for concatenation:
+1 select ename + ' WORKS AS A ' + job as msg
+2 from emp
+3 where deptno=10
+
+2. Return a random result set:
+
+Use the built-in function NEWID in conjunction with TOP and ORDER BY to
+return a random result set:
+1 select top 5 ename,job
+2 from emp
+3 order by newid()
+
+3. Sort by substrings:
+
+Use the SUBSTRING function in the ORDER BY clause:
+select ename,job
+ from emp
+ order by substring(job,len(job)-1,2)
+ 
+ -- substring(string, start, length)
+ 
+ 4. Sort mixed alphanumeric data:
+ 
+1 select data
+2 from V
+3 order by replace(
+4 translate(data,'0123456789','##########'),'#','')
+
+-- replace(string,  source_sub_string, target_string)
+-- translate(string, source_sub_string, target_string)
+
+5. deal with NULL when sorting
+
+1 select ename,sal,comm
+2 from (
+3   select ename,sal,comm,
+4   case when comm is null then 0 else 1 end as is_null
+5   from emp
+6 ) x
+7 order by is_null desc,comm
+
+6. These give equal result:
+
+select e.ename, d.loc,
+ from emp e, dept d
+ where e.deptno = d.de
+ 
+ select e.ename, d.loc
+ from emp e inner join dept d
+ on (e.deptno = d.deptno)
+ where e.deptno = 10
+ 
+ 7. Use INTERSECT to get common rows
+ 
+ INTERSECT removes duplicate and NULL
+ INNER JOIN return duplicate and NULL
+ 
+ 8. USE EXCEPT to get value from one table that do not exist on another table
+ 
+1 select deptno from dept
+2 except
+3 select deptno from emp
+
+OR use NOT IN()
+
+1 select deptno
+2 from dept
+3 where deptno not in (select deptno from emp)
+
+9. SUM(COLUMN_NAME) OVER (PARTITION BY COLUMN_NAME)
+-- PARTITION BY is to replace the GROUP BY clause
+
+ select distinct deptno,total_sal,total_bonus
+ from (
+    select 
+      e.empno,
+      e.ename,
+      sum(distinct e.sal) over (partition by e.deptno) as total_sal,
+      e.deptno,
+      sum(e.sal*case when eb.type = 1 then .1 when eb.type = 2 then .2 ELSE.3 end) over (partition by deptno) as total_bonus
+    from emp e join emp_bonus eb
+    on e.empno = eb.empno
+    and e.deptno = 10
+  ) x
+
+10. use FULL OUTER JOIN to return all data
+same as left outer join union right outer join
+
+1 select d.deptno,d.dname,e.ename
+2 from dept d full outer join emp e
+3 on (d.deptno=e.deptno)
+
+
+1 select d.deptno,d.dname,e.ename
+2 from dept d right outer join emp e
+3 on (d.deptno=e.deptno)
+4 union
+5 select d.deptno,d.dname,e.ename
+6 from dept d left outer join emp e
+7 on (d.deptno=e.deptno)
+
+11. Update table by joining another table
+
+update e
+set e.sal = ns.sal,
+    e.comm = ns.sal/2
+from emp e 
+join new_sal ns on ns.deptno = e.deptno
+
+12. MERGE records
+
+merge into emp_commission ec
+using (select * from emp) emp
+on (ec.empno=emp.empno)
+when matched then
+  update set ec.comm = 1000
+  delete where (sal < 2000)
+when not matched then
+  insert (ec.empno,ec.ename,ec.deptno,ec.comm)
+  values (emp.empno,emp.ename,emp.deptno,emp.comm)
+
+13. show a list of tables under a schema
+
+select table_name
+from information_schema.tables
+where table_schema = 'dbo'
+
+14. Show column name, data type and ordinal positions :
+
+select column_name, data_type, ordinal_position
+from information_schema.columns
+where table_schema = 'dbo'
+and table_name = 'CCS'
+
+15. Calc the occurence of a character
+
+select len('hello hello') - len(replace('hello hello', 'o',''))     -- result: 2
+
+16. Use translate and replace to remove unwanted characters:
+
+17. Creating a Delimited List from Table Rows
+
+18. Use string_agg a Delimited List from Table Rows
+
+STRING_AGG ( expression, separator )
+
+SELECT STRING_AGG(CONVERT(NVARCHAR(max), ISNULL(FirstName,'N/A')), ',') AS csv 
+FROM Person.Person;
+
+result:
+Syed,Catherine,Kim,Kim,Kim,Hazem,Sam,Humberto,Gustavo,Pilar,Pilar, ...
+
+The STRING_AGG function syntax is similar enough to GROUP_CONCAT that the
+same query can be used with the GROUP_CONCAT simply changed to
+STRING_AGG.
+
+19. Use STRING_SPLIT to split a string
+SELECT value FROM STRING_SPLIT('Lorem ipsum dolor sit amet.', ' ');
+
+result:
+
+value
+Lorem
+ipsum
+dolor
+sit
+amet.
+
+20. LAG() to access previous rows data : opposite to LEAD() which access the following rows data
+
+LAG (scalar_expression [,offset] [,default])  
+OVER ( [ partition_by_clause ] order_by_clause )
+
+EXAMPLE 1:
+SELECT *, 
+       Lag(JoiningDate, 1,'1999-09-01') OVER(
+       ORDER BY JoiningDate ASC) AS EndDate
+FROM @Employee;
+
+EXAMPLE 2:
+
+SELECT [Year], 
+       [Quarter], 
+       Sales, 
+       LAG(Sales, 1, 0) OVER(PARTITION BY [Year]
+       ORDER BY [Year], 
+                [Quarter] ASC) AS [NextQuarterSales]
+FROM dbo.ProductSales;
+
+
+21. RANK(), DENSE_RANK() and ROW_NUMBER()
+
+RANK: can be 1, 2, 2, 2, 5
+DENSE_RANK : can be 1, 2, 2, 2, 3
+ROW_NUMBER : always 1, 2, 3, 4, 5
+
+EXAMPLE:
+
+declare @data table(
+	MainID int,
+	Component varchar(30),
+	Val decimal(16,2)
+)
+ INSERT @data (MainID, Component, Val)
+   VALUES(1, 'ALPHA', 12),
+         (1, 'BETA', 12),
+         (1, 'GAMMA', 13),
+         (1, 'DELTA', 12.23),
+         (1, 'EPSILON', 11.1),
+         (2, 'London', 9.12),
+         (2, 'New York', 8.11),
+         (2, 'Mumbai',  9.12)
+
+ SELECT MainID, Component, Val, 
+        rowno = row_number() OVER(PARTITION BY MainID ORDER BY Val),
+        rank  = rank() OVER(PARTITION BY MainID ORDER BY Val),
+        drank = dense_rank() OVER(PARTITION BY MainID ORDER BY Val)
+ FROM  @data 
+ ORDER BY MainID, Val
+
+MainID	Component	Val	rowno	rank	drank
+1	EPSILON	11.10	1	1	1
+1	ALPHA	12.00	2	2	2
+1	BETA	12.00	3	2	2
+1	DELTA	12.23	4	4	3
+1	GAMMA	13.00	5	5	4
+2	New York	8.11	1	1	1
+2	Mumbai	9.12	2	2	2
+2	London	9.12	3	2	2
+
+
+
+
+
+
+
+
+
+
