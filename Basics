@@ -232,11 +232,171 @@ MainID	Component	Val	rowno	rank	drank
 2	London	9.12	3	2	2
 
 
+22. Use  PERCENTILE_CONT() and PERCENT_DISC() to calc the median
+
+PERCENTILE_CONT ( numeric_literal )   
+    WITHIN GROUP ( ORDER BY order_by_expression [ ASC | DESC ] )  
+    OVER ( [ <partition_by_clause> ] )
+-- return float
+
+NOTE:
+Calculates a percentile based on a continuous distribution of the column value in SQL Server. 
+The result is interpolated and might not be equal to any of the specific values in the column.
+
+PERCENTILE_DISC always returns an actual value from the set.
+
+SELECT DISTINCT DepartmentName  
+,PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY BaseRate)  
+    OVER (PARTITION BY DepartmentName) AS MedianCont  
+,PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY BaseRate)  
+    OVER (PARTITION BY DepartmentName) AS MedianDisc  
+FROM dbo.DimEmployee; 
+
+select percentile_cont(0.5)
+ within group(order by sal)
+ over()
+ from emp
+ where deptno=20
+
+22. Calc the percentage of a total
+
+EXAMPLE:
+
+select distinct (d10/total)*100 as pct
+from (
+	select deptno,
+	sum(sal)over() total,
+	sum(sal)over(partition by deptno) d10
+	from emp
+) x
+where deptno=10
+
+It is important to keep in mind that window functions are applied AFTER the WHERE
+clause is evaluated, so in this case the where clause needs to be put outside of the x query block
+to get the sum of ALL rows within X. If "where deptno=10" is within the X block, the SUM(SAL) total will 
+be just total of where deptno=10.
+
+23. calc averages without high and low values
+
+select avg(sal)
+from (
+	select sal, min(sal)over() min_sal, max(sal)over() max_sal
+	from emp
+) x
+where sal not in (min_sal,max_sal)
+
+24. calc running total : use SUM(case when ... then  -amount else amount)
+
+select 
+case when trx = 'PY'
+	then 'PAYMENT'
+	else 'PURCHASE'
+	end trx_type,
+amt,
+sum(
+	case when trx = 'PY'
+	then -amt else amt
+	end
+) over (order by id,amt) as balance
+from V
+
+25. Finding Outliers Using the Median Absolute Deviation : USE PERCENTILE_COUNT()
+
+with median (median)
+as
+(select distinct percentile_cont(0.5) within group(order by sal)
+ over()
+from emp),
+Deviation (Deviation)
+ as
+(Select abs(sal-median)
+from emp join median on 1=1),
+MAD (MAD) as
+(select DISTINCT PERCENTILE_CONT(0.5) within group(order by deviation) over()
+from Deviation )
+select abs(sal-MAD)/MAD, sal, ename, job
+from MAD join emp on 1=1
 
 
+26. Finding Anomalies Using Benford’s Law
 
+with
+FirstDigits (FirstDigit)
+as
+(select left(cast(SAL as CHAR),1) as FirstDigit
+ from emp),
+TotalCount (Total)
+as
+(select count(*)
+ from emp),
+ExpectedBenford (Digit,Expected)
+as
+ (select value,(log10(value + 1) - log10(value)) as expected
+ from t10
+ where value < 10)
+select count(FirstDigit),Digit
+,coalesce(count(*)/Total,0) as ActualProportion,Expected
+From FirstDigits
+ Join TotalCount
+ Right Join ExpectedBenford
+ on FirstDigits.FirstDigit=ExpectedBenford.Digit
+group by Digit
+order by Digit;
 
+27. Use DATEADD() TO ADD OR SUBTRACT DATE/TIME
 
+28. Use DATEDIFF() TO CALC DIFF BETWEEN TWO DAYS/TIME
 
+29. DATENAME() and DATEPART()
 
+DATENAME() returns a string
+DATEPART() returns an integer
 
+The difference between these two:
+
+select DATENAME(MONTH, GETDATE()) -- August
+select DATEPART(MONTH, GETDATE()) -- 8
+
+select DATENAME(WEEKDAY, GETDATE())	-- Wednesday
+select DATEPART(WEEKDAY, GETDATE())	-- 4
+
+30. Use ROW_NUMBER() OVER() for pagination or skipping rows
+
+31. create a bucket size of data
+
+select ceiling(row_number()over(order by empno)/5.0) grp,
+ename
+from emp
+
+result:
+
+grp	ename
+-----	------
+1	name1
+1	name2
+1	name3
+1	name4
+1	name5
+2	name6
+2	name7
+2	name8
+2	name9
+2	name10
+
+32. Use NTILE(n) OVER(ORDER BY ...) to separate data into n groups 
+
+33. use WITH ROLLUP to calc total
+Syntax:
+
+SELECT 
+    c1, c2, aggregate_function(c3)
+FROM
+    table_name
+GROUP BY c1, c2 WITH ROLLUP;
+
+example:
+
+select coalesce(job,'TOTAL') job,
+ sum(sal) sal
+ from emp
+ group by job with rollup
