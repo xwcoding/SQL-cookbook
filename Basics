@@ -400,3 +400,15 @@ select coalesce(job,'TOTAL') job,
  sum(sal) sal
  from emp
  group by job with rollup
+
+
+
+32. paging :  OFFSET... FETCH ...
+
+SELECT ...
+ORDER BY ...
+OFFSET n ROWS 
+FETCH NEXT n ROWS ONLY
+
+https://www.sqlservertutorial.net/sql-server-basics/sql-server-offset-fetch/
+
